@@ -208,19 +208,14 @@ class Connection:
         return False, False
 
 
-def genrandaddr(port):
-    ipint = random.randint(0, 2**32-1)
-    ip = socket.inet_ntoa(struct.pack('!L', ipint))
-    return (ip, port)
-
-
 class Scanner:
-    def __init__(self, total_to_scan, PORT, concurrency, protocol_handler, timeout):
+    def __init__(self, total_to_scan, PORT, concurrency, protocol_handler, timeout, logfilename):
         self.total_to_scan = total_to_scan
         self.PORT = PORT
         self.concurrency = concurrency
         self.protocol_handler = protocol_handler
         self.timeout = timeout
+        self.logfile = open(logfilename, "w", buffering=1024*1024)
 
         self.conns = {}
         # TODO: poll() is not available everywhere...
@@ -230,13 +225,16 @@ class Scanner:
         self.successes = 0
         self.errors    = 0
 
+    def genrandaddr(self):
+        ipint = random.randint(0, 2**32-1)
+        ip = socket.inet_ntoa(struct.pack('!L', ipint))
+        return (ip, self.PORT)
+
     def success_handler(self, c):
-        if self.protocol_handler == HTTPHandler:
-            # truncate http responses
+        response = c.get_response()
+        if type(response) in (bytearray, bytes):
             response = c.get_response()[:100]
-        else:
-            response = c.get_response()
-        print("[+] Success {}:{} -> {}".format(c.ip, c.port, response))
+        print("[+] Success {}:{} -> {}".format(c.ip, c.port, response), file=self.logfile)
 
     def handle_completion(self, fd):
         c = self.conns[fd]
@@ -259,7 +257,7 @@ class Scanner:
                     break
 
                 try:
-                    ip, port = genrandaddr(self.PORT)
+                    ip, port = self.genrandaddr()
                 except StopIteration:
                     generator_exhausted = True
                     break
@@ -290,6 +288,10 @@ class Scanner:
                 print("[?] STATUS conns: {}, submitted: {}, successes: {}, errors: {}".format(
                     len(self.conns), self.submitted, self.successes, self.errors)
                 )
+
+                # flush logfile every second, because the buffer is large
+                self.logfile.flush()
+
                 tmpconns = self.conns.copy()
                 for fd, c in tmpconns.items():
                     # This returns True if the protocol handler thinks it was successful
@@ -314,6 +316,7 @@ if __name__ == "__main__":
     parser.add_argument("--timeout", type=int, required=True, help="Host timeout in seconds")
     parser.add_argument("--protocol-handler", type=str, choices=VALID_PROTOCOL_HANDLERS, required=True,
                         help="Protocol handler")
+    parser.add_argument("--logfile", type=str, required=True, help="Path to log file, it will be truncated!")
     args = parser.parse_args()
 
     if args.protocol_handler == "HTTP":
@@ -328,6 +331,6 @@ if __name__ == "__main__":
     else:
         raise ValueError("Invalid protocol handler: {}".format(args.protocol_handler))
 
-    scanner = Scanner(args.total, args.port, args.concurrency, protocol_handler, args.timeout)
+    scanner = Scanner(args.total, args.port, args.concurrency, protocol_handler, args.timeout, args.logfile)
     scanner.scan()
 
