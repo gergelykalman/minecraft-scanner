@@ -33,5 +33,23 @@ $ python3 scanner.py --input-file lists/ips.txt --max-workers 10
 ```
 
 
-### TODO
-- Write a fast TCP connect scanner, so we don't have to rely on external tools to find target IPs
+# portscanner.py
+
+portscanner.py is a very fast TCP port scanner with **very** basic support for a couple of protocols:
+- HTTP
+- CONNECT
+- BANNER_GRAB
+
+Usage: 
+```bash
+$ python3 portscanner.py --port 23 --total 10000 --concurrency 1000 --timeout 1 --protocol-handler BANNER_GRAB
+[+] Success [REDACTED]:23 -> None
+[?] STATUS conns: 1000, submitted: 1025, successes: 1, errors: 24
+[+] Success [REDACTED]:23 -> bytearray(b'[REDACTED]')
+[?] STATUS conns: 1000, submitted: 2027, successes: 2, errors: 1025
+[+] Success [REDACTED]:23 -> bytearray(b'[REDACTED]')
+[?] STATUS conns: 1000, submitted: 3026, successes: 3, errors: 2023
+[?] STATUS conns: 1000, submitted: 4028, successes: 3, errors: 3025
+[+] Success [REDACTED]:23 -> bytearray(b'\r\n%connection closed by remote host!\x00')
+...
+```
